@@ -1,7 +1,8 @@
 import csv, math, zipfile, os
 
-IN_CSV = "MTA_Rail_Stations_20250913.csv"          # path to your downloaded CSV
-OUT_KML = "lirr_15min_walk_circles.kml"  # output KML
+DATA_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
+IN_CSV = f"{DATA_DIR}/MTA_Rail_Stations_20250913.csv"          # path to your downloaded CSV
+OUT_KML = f"{DATA_DIR}/lirr_15min_walk_circles.kml"  # output KML
 MAKE_KMZ = True                          # also write a KMZ zip of the KML
 
 RADIUS_M = 1207  # ≈15 min walk at ~3 mph

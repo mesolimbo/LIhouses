@@ -238,14 +238,15 @@ def generate_report(homes, max_price=600000):
 
 def main():
     # Configuration
-    stations_csv = "MTA_Rail_Stations_with_zip.csv"
-    zip_codes_file = "zipcodes.txt"
-    json_output_dir = ".tmp"
+    data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
+    stations_csv = f"{data_dir}/MTA_Rail_Stations_with_zip.csv"
+    zip_codes_file = f"{data_dir}/zipcodes.txt"
+    output_dir = os.path.join(os.path.dirname(__file__), '..', '..', '.tmp')
     max_price = 600000  # $600k budget
 
     # Generate timestamp for output files
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_output_file = f".tmp/homes-{timestamp}.csv"
+    csv_output_file = f"{output_dir}/homes-{timestamp}.csv"
 
     # Check for required files
     if not os.path.exists(stations_csv):
@@ -276,21 +277,21 @@ def main():
 
         # Fetch data for each zip code (if not already cached)
         for zip_code in zip_codes:
-            json_file = os.path.join(json_output_dir, f"{zip_code}.json")
+            json_file = os.path.join(output_dir, f"{zip_code}.json")
 
             if os.path.exists(json_file):
                 print(f"Data for {zip_code} already exists, skipping...")
                 continue
 
             data = fetch_rentcast_data(zip_code, api_key, max_price)
-            save_json_data(data, zip_code, json_output_dir)
+            save_json_data(data, zip_code, output_dir)
 
             # Rate limiting - be nice to the API
             time.sleep(1)
 
     # Load all data and process (filtered by Long Island zip codes)
     print("\nLoading and combining Long Island JSON data...")
-    all_homes = load_all_json_data(json_output_dir, allowed_zips)
+    all_homes = load_all_json_data(output_dir, allowed_zips)
     print(f"Total Long Island homes loaded: {len(all_homes)}")
 
     # Filter by price, bathrooms, bedrooms, and property type
@@ -305,7 +306,7 @@ def main():
     convert_to_csv(filtered_homes, csv_output_file)
 
     print(f"\nComplete! Filtered homes saved to: {csv_output_file}")
-    print(f"Raw JSON data saved in: {json_output_dir}")
+    print(f"Raw JSON data saved in: {output_dir}")
 
 if __name__ == "__main__":
     main()

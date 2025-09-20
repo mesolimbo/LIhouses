@@ -45,7 +45,7 @@ def enrich_csv_with_zip_codes(input_file, output_file):
     """Read CSV file and add zip code column based on lat/lng"""
     with open(input_file, 'r', newline='', encoding='utf-8') as infile:
         reader = csv.DictReader(infile)
-        fieldnames = reader.fieldnames + ['Zip_Code']
+        fieldnames = reader.fieldnames + ['Zip Code']
 
         with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
             writer = csv.DictWriter(outfile, fieldnames=fieldnames)
@@ -75,8 +75,9 @@ def enrich_csv_with_zip_codes(input_file, output_file):
                     writer.writerow(row)
 
 if __name__ == "__main__":
-    input_file = "MTA_Rail_Stations_20250913.csv"
-    output_file = "MTA_Rail_Stations_with_zip.csv"
+    data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
+    input_file = f"{data_dir}/MTA_Rail_Stations_20250913.csv"
+    output_file = f"{data_dir}/MTA_Rail_Stations_with_zip.csv"
 
     if not os.path.exists(input_file):
         print(f"Error: {input_file} not found")
