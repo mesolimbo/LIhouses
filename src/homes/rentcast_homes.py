@@ -1,6 +1,7 @@
 import os, requests, json, csv, sys
 from datetime import datetime
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def load_allowed_zip_codes(zip_file):
     """Load allowed Long Island zip codes from file"""
@@ -34,7 +35,7 @@ def get_unique_zip_codes(csv_file, allowed_zips=None):
     return sorted(list(zip_codes))
 
 def get_zip_code_coordinates(csv_file, allowed_zips=None):
-    """Extract zip code coordinates from MTA stations CSV, using representative station per zip"""
+    """Extract zip code coordinates from MTA stations CSV, returning all stations per zip"""
     zip_coords = {}
 
     with open(csv_file, 'r', newline='', encoding='utf-8') as infile:
@@ -52,17 +53,46 @@ def get_zip_code_coordinates(csv_file, allowed_zips=None):
                 # Only include if in allowed list (if provided)
                 if allowed_zips is None or zip_code in allowed_zips:
                     try:
-                        # Use first station found for each zip code as representative coordinates
+                        # Collect all stations for each zip code
                         if zip_code not in zip_coords:
-                            zip_coords[zip_code] = {
-                                'latitude': float(latitude),
-                                'longitude': float(longitude),
-                                'station_name': station_name
-                            }
+                            zip_coords[zip_code] = []
+
+                        zip_coords[zip_code].append({
+                            'latitude': float(latitude),
+                            'longitude': float(longitude),
+                            'station_name': station_name
+                        })
                     except ValueError:
                         print(f"Warning: Invalid coordinates for {station_name}, skipping")
 
     return zip_coords
+
+def get_zip_code_to_station_mapping(csv_file, allowed_zips=None):
+    """Create a mapping from zip codes to station names from MTA stations CSV"""
+    zip_to_stations = {}
+
+    with open(csv_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        for row in reader:
+            zip_code = row.get('Zip Code', '').strip()
+            station_name = row.get('Station Name', '').strip()
+
+            # Check if we have valid data
+            if (zip_code and zip_code not in ['N/A', 'ERROR'] and station_name):
+                # Only include if in allowed list (if provided)
+                if allowed_zips is None or zip_code in allowed_zips:
+                    # Collect all stations for each zip code
+                    if zip_code not in zip_to_stations:
+                        zip_to_stations[zip_code] = []
+                    if station_name not in zip_to_stations[zip_code]:
+                        zip_to_stations[zip_code].append(station_name)
+
+    # Convert lists to comma-delimited strings
+    zip_to_station = {}
+    for zip_code, stations in zip_to_stations.items():
+        zip_to_station[zip_code] = ', '.join(sorted(stations))
+
+    return zip_to_station
 
 def fetch_rentcast_data(zip_code, latitude, longitude, station_name, api_key, max_price=600000, radius=1.5):
     """Fetch homes for sale data from RentCast API for a zip code using station coordinates with radius"""
@@ -104,6 +134,43 @@ def save_json_data(data, zip_code, output_dir):
         json.dump(data, f, indent=2)
 
     print(f"Saved {len(data)} listings to {filename}")
+
+def fetch_and_combine_data_for_zip(zip_code, stations, api_key, max_price=600000, radius=1.5):
+    """Fetch data from all stations in a zip code and combine results"""
+    all_data = []
+    seen_ids = set()
+
+    # Process stations sequentially within this zip code
+    # (since each thread handles a unique zip code, we don't need concurrency here)
+    for station in stations:
+        station_name = station['station_name']
+        latitude = station['latitude']
+        longitude = station['longitude']
+
+        try:
+            data = fetch_rentcast_data(zip_code, latitude, longitude, station_name, api_key, max_price, radius)
+            print(f"  {station_name}: {len(data)} listings")
+
+            # Add unique listings only (deduplicate by ID)
+            for listing in data:
+                listing_id = listing.get('id')
+                if listing_id and listing_id not in seen_ids:
+                    seen_ids.add(listing_id)
+                    all_data.append(listing)
+                elif not listing_id:
+                    # If no ID, use address + price as fallback identifier
+                    address = listing.get('formattedAddress', '')
+                    price = listing.get('price', 0)
+                    fallback_id = f"{address}|{price}"
+                    if fallback_id not in seen_ids:
+                        seen_ids.add(fallback_id)
+                        all_data.append(listing)
+
+        except Exception as e:
+            print(f"  Error fetching data for {station_name}: {e}")
+
+    print(f"Combined data for zip {zip_code}: {len(all_data)} unique listings from {len(stations)} stations")
+    return all_data
 
 def load_all_json_data(json_dir, allowed_zips=None):
     """Load all JSON files from the directory and combine them, filtered by allowed zip codes"""
@@ -296,7 +363,7 @@ def generate_report(homes, max_price=600000):
         if stats['under_budget'] == 0:
             print(f"  WARNING: No homes under ${max_price:,} in this zip code!")
 
-def generate_zip_code_inventory_report(filtered_homes, output_dir):
+def generate_zip_code_inventory_report(filtered_homes, output_dir, zip_to_station=None):
     """Generate a CSV report showing inventory counts by zip code from filtered homes"""
     zip_inventory = {}
 
@@ -312,7 +379,7 @@ def generate_zip_code_inventory_report(filtered_homes, output_dir):
     report_file = os.path.join(output_dir, f"zip_code_inventory-{timestamp}.csv")
 
     with open(report_file, 'w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['zip_code', 'total_listings']
+        fieldnames = ['zip_code', 'station_name', 'total_listings']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
@@ -320,8 +387,14 @@ def generate_zip_code_inventory_report(filtered_homes, output_dir):
         sorted_zips = sorted(zip_inventory.items(), key=lambda x: (-x[1], x[0]))
 
         for zip_code, count in sorted_zips:
+            # Get station name if mapping is provided
+            station_name = ''
+            if zip_to_station and zip_code in zip_to_station:
+                station_name = zip_to_station[zip_code]
+
             writer.writerow({
                 'zip_code': zip_code,
+                'station_name': station_name,
                 'total_listings': count
             })
 
@@ -329,7 +402,9 @@ def generate_zip_code_inventory_report(filtered_homes, output_dir):
     print(f"Total zip codes with listings: {len([c for c in zip_inventory.values() if c > 0])}")
     print(f"Top 5 zip codes by inventory:")
     for zip_code, count in sorted_zips[:5]:
-        print(f"  {zip_code}: {count} listings")
+        station_name = zip_to_station.get(zip_code, '') if zip_to_station else ''
+        station_info = f" ({station_name})" if station_name else ""
+        print(f"  {zip_code}{station_info}: {count} listings")
 
     return report_file
 
@@ -358,6 +433,11 @@ def main():
     else:
         print("No zip code filter applied - processing all zip codes")
 
+    # Create zip code to station mapping
+    print("Creating zip code to station mapping...")
+    zip_to_station = get_zip_code_to_station_mapping(stations_csv, allowed_zips)
+    print(f"Found {len(zip_to_station)} zip codes with associated stations")
+
     # Check if API key is available for fetching new data
     if "RENTCAST_API_KEY" not in os.environ:
         print("Warning: RENTCAST_API_KEY environment variable not set")
@@ -372,19 +452,56 @@ def main():
         zip_coords = get_zip_code_coordinates(stations_csv, allowed_zips)
         print(f"Found {len(zip_coords)} Long Island zip codes with coordinates")
 
-        # Fetch data for each zip code using station coordinates (if not already cached)
-        for zip_code, coords in zip_coords.items():
+        # Filter out zip codes that already have data
+        zip_codes_to_fetch = {}
+        for zip_code, stations in zip_coords.items():
             json_file = os.path.join(output_dir, f"{zip_code}.json")
-
             if os.path.exists(json_file):
                 print(f"Data for {zip_code} already exists, skipping...")
-                continue
+            else:
+                zip_codes_to_fetch[zip_code] = stations
 
-            data = fetch_rentcast_data(zip_code, coords['latitude'], coords['longitude'], coords['station_name'], api_key, max_price)
-            save_json_data(data, zip_code, output_dir)
+        if zip_codes_to_fetch:
+            print(f"Fetching data for {len(zip_codes_to_fetch)} zip codes...")
 
-            # Rate limiting - be nice to the API
-            time.sleep(1)
+            # Sort zip codes by station count (descending) for better load balancing
+            # This ensures zip codes with more stations are processed first
+            sorted_zip_codes = sorted(
+                zip_codes_to_fetch.items(),
+                key=lambda x: len(x[1]),
+                reverse=True
+            )
+
+            # Show distribution for debugging
+            station_counts = [len(stations) for _, stations in sorted_zip_codes]
+            print(f"Station distribution: max={max(station_counts)}, min={min(station_counts)}, avg={sum(station_counts)/len(station_counts):.1f}")
+
+            # Process zip codes concurrently - each thread handles one complete zip code
+            def fetch_zip_data(zip_code_and_stations):
+                zip_code, stations = zip_code_and_stations
+                print(f"Fetching data for zip {zip_code} from {len(stations)} stations...")
+                combined_data = fetch_and_combine_data_for_zip(zip_code, stations, api_key, max_price)
+                save_json_data(combined_data, zip_code, output_dir)
+                return zip_code, len(combined_data)
+
+            # Use ThreadPoolExecutor - each thread processes a unique zip code
+            # Up to 6 zip codes can be processed simultaneously
+            # Zip codes are ordered by station count (most stations first)
+            with ThreadPoolExecutor(max_workers=6) as executor:
+                future_to_zip = {
+                    executor.submit(fetch_zip_data, (zip_code, stations)): zip_code
+                    for zip_code, stations in sorted_zip_codes
+                }
+
+                for future in as_completed(future_to_zip):
+                    zip_code = future_to_zip[future]
+                    try:
+                        zip_code, listing_count = future.result()
+                        print(f"Completed zip {zip_code}: {listing_count} listings")
+                    except Exception as e:
+                        print(f"Error processing zip {zip_code}: {e}")
+        else:
+            print("All zip codes already have cached data.")
 
     # Load all data and process (filtered by Long Island zip codes)
     print("\nLoading and combining Long Island JSON data...")
@@ -409,7 +526,7 @@ def main():
 
     # Generate zip code inventory report
     print(f"\nGenerating zip code inventory report...")
-    inventory_report_file = generate_zip_code_inventory_report(filtered_homes, output_dir)
+    inventory_report_file = generate_zip_code_inventory_report(filtered_homes, output_dir, zip_to_station)
 
     print(f"\nComplete! Filtered homes saved to: {csv_output_file}")
     print(f"Zip code inventory report saved to: {inventory_report_file}")
