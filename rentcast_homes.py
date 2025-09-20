@@ -103,12 +103,32 @@ def load_all_json_data(json_dir, allowed_zips=None):
 
     return all_homes
 
-def filter_homes_by_price(homes, max_price=600000):
-    """Filter homes by maximum price"""
+def filter_homes_by_criteria(homes, max_price=600000, min_bathrooms=1.5, min_bedrooms=3):
+    """Filter homes by price, bathrooms, bedrooms, and property type"""
     filtered = []
+
     for home in homes:
-        if home.get('price', 0) <= max_price:
-            filtered.append(home)
+        # Filter by price
+        price = home.get('price', 0)
+        if price > max_price:
+            continue
+
+        # Filter by property type - exclude empty lots
+        property_type = home.get('propertyType', '').lower()
+        if property_type == 'land':
+            continue
+
+        # Filter by bathrooms - must have 1.5+ if not null
+        bathrooms = home.get('bathrooms')
+        if bathrooms is not None and bathrooms < min_bathrooms:
+            continue
+
+        # Filter by bedrooms - must have 3+ (hard requirement, exclude nulls)
+        bedrooms = home.get('bedrooms')
+        if bedrooms is None or bedrooms < min_bedrooms:
+            continue
+
+        filtered.append(home)
 
     return filtered
 
@@ -199,7 +219,8 @@ def generate_report(homes, max_price=600000):
     print(f"\n=== HOMES FOR SALE REPORT ===")
     print(f"Total homes found: {len(homes)}")
     print(f"Budget limit: ${max_price:,}")
-    print(f"Homes under budget: {sum(1 for h in homes if h.get('price', 0) <= max_price)}")
+    print(f"Criteria: 3+ bedrooms, 1.5+ bathrooms, no land/empty lots")
+    print(f"Homes meeting criteria: {len(homes)}")
 
     print(f"\n=== BY ZIP CODE ===")
     for zip_code in sorted(zip_stats.keys()):
@@ -272,9 +293,9 @@ def main():
     all_homes = load_all_json_data(json_output_dir, allowed_zips)
     print(f"Total Long Island homes loaded: {len(all_homes)}")
 
-    # Filter by price (though we already did this at API level)
-    filtered_homes = filter_homes_by_price(all_homes, max_price)
-    print(f"Long Island homes under ${max_price:,}: {len(filtered_homes)}")
+    # Filter by price, bathrooms, bedrooms, and property type
+    filtered_homes = filter_homes_by_criteria(all_homes, max_price, min_bathrooms=1.5, min_bedrooms=3)
+    print(f"Long Island homes under ${max_price:,} (3+ bedrooms, 1.5+ bathrooms, no land): {len(filtered_homes)}")
 
     # Generate report
     generate_report(all_homes, max_price)
