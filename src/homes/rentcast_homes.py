@@ -33,8 +33,39 @@ def get_unique_zip_codes(csv_file, allowed_zips=None):
 
     return sorted(list(zip_codes))
 
-def fetch_rentcast_data(zip_code, api_key, max_price=600000):
-    """Fetch homes for sale data from RentCast API for a given zip code"""
+def get_zip_code_coordinates(csv_file, allowed_zips=None):
+    """Extract zip code coordinates from MTA stations CSV, using representative station per zip"""
+    zip_coords = {}
+
+    with open(csv_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        for row in reader:
+            zip_code = row.get('Zip Code', '').strip()
+            station_name = row.get('Station Name', '').strip()
+            latitude = row.get('Latitude', '').strip()
+            longitude = row.get('Longitude', '').strip()
+
+            # Check if we have valid data
+            if (zip_code and zip_code not in ['N/A', 'ERROR'] and
+                station_name and latitude and longitude):
+
+                # Only include if in allowed list (if provided)
+                if allowed_zips is None or zip_code in allowed_zips:
+                    try:
+                        # Use first station found for each zip code as representative coordinates
+                        if zip_code not in zip_coords:
+                            zip_coords[zip_code] = {
+                                'latitude': float(latitude),
+                                'longitude': float(longitude),
+                                'station_name': station_name
+                            }
+                    except ValueError:
+                        print(f"Warning: Invalid coordinates for {station_name}, skipping")
+
+    return zip_coords
+
+def fetch_rentcast_data(zip_code, latitude, longitude, station_name, api_key, max_price=600000, radius=1.5):
+    """Fetch homes for sale data from RentCast API for a zip code using station coordinates with radius"""
     url = "https://api.rentcast.io/v1/listings/sale"
 
     headers = {
@@ -43,19 +74,21 @@ def fetch_rentcast_data(zip_code, api_key, max_price=600000):
     }
 
     params = {
-        "zipCode": zip_code,
+        "latitude": latitude,
+        "longitude": longitude,
+        "radius": radius,
         "status": "Active",
         "maxPrice": max_price,
         "limit": 500  # Get all available listings
     }
 
     try:
-        print(f"Fetching data for zip code {zip_code}...")
+        print(f"Fetching data for zip {zip_code} using {station_name} coordinates (lat: {latitude}, lng: {longitude}, radius: {radius} miles)...")
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
 
         data = response.json()
-        print(f"Found {len(data)} listings in {zip_code}")
+        print(f"Found {len(data)} listings within {radius} miles of {station_name} for zip {zip_code}")
         return data
 
     except requests.exceptions.RequestException as e:
@@ -102,6 +135,33 @@ def load_all_json_data(json_dir, allowed_zips=None):
                 print(f"Error loading {filename}: {e}")
 
     return all_homes
+
+def deduplicate_homes(homes):
+    """Remove duplicate homes based on unique identifiers"""
+    seen_homes = set()
+    unique_homes = []
+
+    for home in homes:
+        # Create a unique identifier for each home
+        # Use ID if available, otherwise fall back to address + price combination
+        home_id = home.get('id')
+        if home_id:
+            identifier = str(home_id)
+        else:
+            # Fallback: use formatted address + price as identifier
+            address = home.get('formattedAddress', '')
+            price = home.get('price', 0)
+            identifier = f"{address}|{price}"
+
+        if identifier not in seen_homes:
+            seen_homes.add(identifier)
+            unique_homes.append(home)
+
+    duplicate_count = len(homes) - len(unique_homes)
+    if duplicate_count > 0:
+        print(f"Removed {duplicate_count} duplicate listings")
+
+    return unique_homes
 
 def filter_homes_by_criteria(homes, max_price=600000, min_bathrooms=1.5, min_bedrooms=3):
     """Filter homes by price, bathrooms, bedrooms, and property type"""
@@ -236,6 +296,43 @@ def generate_report(homes, max_price=600000):
         if stats['under_budget'] == 0:
             print(f"  WARNING: No homes under ${max_price:,} in this zip code!")
 
+def generate_zip_code_inventory_report(filtered_homes, output_dir):
+    """Generate a CSV report showing inventory counts by zip code from filtered homes"""
+    zip_inventory = {}
+
+    # Count filtered homes by their zip code
+    for home in filtered_homes:
+        zip_code = home.get('zipCode', 'Unknown')
+        if zip_code not in zip_inventory:
+            zip_inventory[zip_code] = 0
+        zip_inventory[zip_code] += 1
+
+    # Create CSV report
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_file = os.path.join(output_dir, f"zip_code_inventory-{timestamp}.csv")
+
+    with open(report_file, 'w', newline='', encoding='utf-8') as csvfile:
+        fieldnames = ['zip_code', 'total_listings']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+
+        # Sort by count (descending) then by zip code
+        sorted_zips = sorted(zip_inventory.items(), key=lambda x: (-x[1], x[0]))
+
+        for zip_code, count in sorted_zips:
+            writer.writerow({
+                'zip_code': zip_code,
+                'total_listings': count
+            })
+
+    print(f"Zip code inventory report saved to: {report_file}")
+    print(f"Total zip codes with listings: {len([c for c in zip_inventory.values() if c > 0])}")
+    print(f"Top 5 zip codes by inventory:")
+    for zip_code, count in sorted_zips[:5]:
+        print(f"  {zip_code}: {count} listings")
+
+    return report_file
+
 def main():
     # Configuration
     data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
@@ -270,20 +367,20 @@ def main():
     else:
         api_key = os.environ["RENTCAST_API_KEY"]
 
-        # Get unique zip codes from stations (filtered by Long Island)
-        print("Extracting zip codes from MTA stations...")
-        zip_codes = get_unique_zip_codes(stations_csv, allowed_zips)
-        print(f"Found {len(zip_codes)} Long Island zip codes: {', '.join(zip_codes)}")
+        # Get zip code coordinates (filtered by Long Island zip codes)
+        print("Extracting zip code coordinates from MTA stations CSV...")
+        zip_coords = get_zip_code_coordinates(stations_csv, allowed_zips)
+        print(f"Found {len(zip_coords)} Long Island zip codes with coordinates")
 
-        # Fetch data for each zip code (if not already cached)
-        for zip_code in zip_codes:
+        # Fetch data for each zip code using station coordinates (if not already cached)
+        for zip_code, coords in zip_coords.items():
             json_file = os.path.join(output_dir, f"{zip_code}.json")
 
             if os.path.exists(json_file):
                 print(f"Data for {zip_code} already exists, skipping...")
                 continue
 
-            data = fetch_rentcast_data(zip_code, api_key, max_price)
+            data = fetch_rentcast_data(zip_code, coords['latitude'], coords['longitude'], coords['station_name'], api_key, max_price)
             save_json_data(data, zip_code, output_dir)
 
             # Rate limiting - be nice to the API
@@ -294,18 +391,28 @@ def main():
     all_homes = load_all_json_data(output_dir, allowed_zips)
     print(f"Total Long Island homes loaded: {len(all_homes)}")
 
+    # Remove duplicates (homes near multiple stations)
+    print("Removing duplicate listings...")
+    unique_homes = deduplicate_homes(all_homes)
+    print(f"Unique Long Island homes after deduplication: {len(unique_homes)}")
+
     # Filter by price, bathrooms, bedrooms, and property type
-    filtered_homes = filter_homes_by_criteria(all_homes, max_price, min_bathrooms=1.5, min_bedrooms=3)
+    filtered_homes = filter_homes_by_criteria(unique_homes, max_price, min_bathrooms=1.5, min_bedrooms=3)
     print(f"Long Island homes under ${max_price:,} (3+ bedrooms, 1.5+ bathrooms, no land): {len(filtered_homes)}")
 
     # Generate report
-    generate_report(all_homes, max_price)
+    generate_report(unique_homes, max_price)
 
     # Convert to CSV for mapping
     print(f"\nConverting to CSV format...")
     convert_to_csv(filtered_homes, csv_output_file)
 
+    # Generate zip code inventory report
+    print(f"\nGenerating zip code inventory report...")
+    inventory_report_file = generate_zip_code_inventory_report(filtered_homes, output_dir)
+
     print(f"\nComplete! Filtered homes saved to: {csv_output_file}")
+    print(f"Zip code inventory report saved to: {inventory_report_file}")
     print(f"Raw JSON data saved in: {output_dir}")
 
 if __name__ == "__main__":
