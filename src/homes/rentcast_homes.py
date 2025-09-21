@@ -1,6 +1,7 @@
 import os, requests, json, csv, sys
 from datetime import datetime
 import time
+import statistics
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def load_allowed_zip_codes(zip_file):
@@ -187,7 +188,7 @@ def load_all_json_data(json_dir, allowed_zips=None):
 
             # Skip if not in allowed list
             if allowed_zips is not None and zip_code not in allowed_zips:
-                print(f"Skipping {filename} - not in Long Island zip codes")
+                print(f"Skipping {filename} - not in approved Long Island zip codes")
                 continue
 
             filepath = os.path.join(json_dir, filename)
@@ -365,46 +366,71 @@ def generate_report(homes, max_price=600000):
 
 def generate_zip_code_inventory_report(filtered_homes, output_dir, zip_to_station=None):
     """Generate a CSV report showing inventory counts by zip code from filtered homes"""
-    zip_inventory = {}
+    zip_data = {}
 
-    # Count filtered homes by their zip code
+    # Collect data by zip code
     for home in filtered_homes:
         zip_code = home.get('zipCode', 'Unknown')
-        if zip_code not in zip_inventory:
-            zip_inventory[zip_code] = 0
-        zip_inventory[zip_code] += 1
+        price = home.get('price', 0)
+        square_footage = home.get('squareFootage', 0)
+
+        if zip_code not in zip_data:
+            zip_data[zip_code] = {
+                'count': 0,
+                'prices': [],
+                'square_footages': []
+            }
+
+        zip_data[zip_code]['count'] += 1
+
+        # Only include valid prices and square footages for statistics
+        if price and price > 0:
+            zip_data[zip_code]['prices'].append(price)
+        if square_footage and square_footage > 0:
+            zip_data[zip_code]['square_footages'].append(square_footage)
 
     # Create CSV report
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_file = os.path.join(output_dir, f"zip_code_inventory-{timestamp}.csv")
 
     with open(report_file, 'w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['zip_code', 'station_name', 'total_listings']
+        fieldnames = ['zip_code', 'station_name', 'total_listings', 'avg_price', 'median_price', 'avg_sqft', 'median_sqft']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
         # Sort by count (descending) then by zip code
-        sorted_zips = sorted(zip_inventory.items(), key=lambda x: (-x[1], x[0]))
+        sorted_zips = sorted(zip_data.items(), key=lambda x: (-x[1]['count'], x[0]))
 
-        for zip_code, count in sorted_zips:
+        for zip_code, data in sorted_zips:
             # Get station name if mapping is provided
             station_name = ''
             if zip_to_station and zip_code in zip_to_station:
                 station_name = zip_to_station[zip_code]
 
+            # Calculate statistics
+            avg_price = statistics.mean(data['prices']) if data['prices'] else 0
+            median_price = statistics.median(data['prices']) if data['prices'] else 0
+            avg_sqft = statistics.mean(data['square_footages']) if data['square_footages'] else 0
+            median_sqft = statistics.median(data['square_footages']) if data['square_footages'] else 0
+
             writer.writerow({
                 'zip_code': zip_code,
                 'station_name': station_name,
-                'total_listings': count
+                'total_listings': data['count'],
+                'avg_price': round(avg_price, 0) if avg_price else '',
+                'median_price': round(median_price, 0) if median_price else '',
+                'avg_sqft': round(avg_sqft, 0) if avg_sqft else '',
+                'median_sqft': round(median_sqft, 0) if median_sqft else ''
             })
 
     print(f"Zip code inventory report saved to: {report_file}")
-    print(f"Total zip codes with listings: {len([c for c in zip_inventory.values() if c > 0])}")
+    print(f"Total zip codes with listings: {len([d for d in zip_data.values() if d['count'] > 0])}")
     print(f"Top 5 zip codes by inventory:")
-    for zip_code, count in sorted_zips[:5]:
+    for zip_code, data in sorted_zips[:5]:
         station_name = zip_to_station.get(zip_code, '') if zip_to_station else ''
         station_info = f" ({station_name})" if station_name else ""
-        print(f"  {zip_code}{station_info}: {count} listings")
+        avg_price = statistics.mean(data['prices']) if data['prices'] else 0
+        print(f"  {zip_code}{station_info}: {data['count']} listings, avg price: ${avg_price:,.0f}" if avg_price else f"  {zip_code}{station_info}: {data['count']} listings")
 
     return report_file
 
