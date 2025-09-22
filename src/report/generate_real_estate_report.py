@@ -272,24 +272,24 @@ def generate_html_report(csv_file, df, price_col, sqft_col, zip_col,
         .header {{
             background: linear-gradient(135deg, #2E86AB, #A23B72);
             color: white;
-            padding: 30px;
+            padding: 15px;
             border-radius: 10px;
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 15px;
         }}
         .header h1 {{
             margin: 0;
-            font-size: 2.5em;
+            font-size: 1.8em;
         }}
         .header p {{
-            margin: 10px 0 0 0;
-            font-size: 1.1em;
+            margin: 5px 0 0 0;
+            font-size: 0.9em;
             opacity: 0.9;
         }}
         .section {{
             background: white;
             padding: 25px;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }}
@@ -354,9 +354,20 @@ def generate_html_report(csv_file, df, price_col, sqft_col, zip_col,
         .footer {{
             text-align: center;
             color: #666;
-            margin-top: 30px;
+            margin-top: 15px;
             padding: 20px;
             border-top: 1px solid #ddd;
+        }}
+        .map-container {{
+            margin-bottom: 15px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        .map-container iframe {{
+            width: 100%;
+            height: 480px;
+            border: none;
         }}
     </style>
 </head>
@@ -365,6 +376,10 @@ def generate_html_report(csv_file, df, price_col, sqft_col, zip_col,
         <h1>🏠 Real Estate Analysis Report</h1>
         <p>Generated on {timestamp}</p>
         <p>Data source: {Path(csv_file).name}</p>
+    </div>
+
+    <div class="map-container">
+        <iframe src="https://www.google.com/maps/d/embed?mid=1Rt2pjUqZVFtj6RIsmJacyrPwHY0gULg&ehbc=2E312F"></iframe>
     </div>
 
     <div class="section">
