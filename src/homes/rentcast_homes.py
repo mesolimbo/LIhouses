@@ -3,6 +3,7 @@ from datetime import datetime
 import time
 import statistics
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import quote
 
 def load_allowed_zip_codes(zip_file):
     """Load allowed Long Island zip codes from file"""
@@ -260,6 +261,39 @@ def filter_homes_by_criteria(homes, max_price=600000, min_bathrooms=1.5, min_bed
 
     return filtered
 
+def generate_zillow_url(address_line1, city, state, zip_code):
+    """Generate a Zillow URL from address components"""
+    if not address_line1 or not city or not state or not zip_code:
+        return ""
+
+    # Create the address slug: "24-Kennedy-Rd-Port-Jefferson-Station-NY-11776"
+    # Replace spaces with dashes and URL encode special characters
+    address_parts = []
+
+    # Process address line (e.g., "24 Kennedy Road" -> "24-Kennedy-Rd")
+    if address_line1:
+        # Replace common street suffixes with abbreviations
+        address_clean = address_line1.replace(" Road", " Rd").replace(" Street", " St").replace(" Avenue", " Ave").replace(" Drive", " Dr").replace(" Lane", " Ln").replace(" Court", " Ct").replace(" Place", " Pl").replace(" Boulevard", " Blvd")
+        address_parts.append(address_clean.replace(" ", "-"))
+
+    # Process city (e.g., "Port Jefferson Station" -> "Port-Jefferson-Station")
+    if city:
+        address_parts.append(city.replace(" ", "-"))
+
+    # Add state and zip code
+    if state:
+        address_parts.append(state)
+    if zip_code:
+        address_parts.append(str(zip_code))
+
+    # Join all parts with dashes
+    address_slug = "-".join(address_parts)
+
+    # URL encode the slug to handle any special characters
+    encoded_slug = quote(address_slug, safe="-")
+
+    return f"https://www.zillow.com/homes/for_sale/{encoded_slug}_rb/"
+
 def convert_to_csv(homes, output_file):
     """Convert the homes data to CSV format for mapping"""
     if not homes:
@@ -268,7 +302,7 @@ def convert_to_csv(homes, output_file):
 
     # Define the CSV columns we want for mapping
     fieldnames = [
-        'id', 'formattedAddress', 'addressLine1', 'city', 'state', 'zipCode',
+        'zillowUrl', 'id', 'formattedAddress', 'addressLine1', 'city', 'state', 'zipCode',
         'latitude', 'longitude', 'propertyType', 'bedrooms', 'bathrooms',
         'squareFootage', 'lotSize', 'yearBuilt', 'price', 'status',
         'listingType', 'listedDate', 'daysOnMarket', 'mlsNumber',
@@ -310,6 +344,14 @@ def convert_to_csv(homes, output_file):
             if listing_agent:
                 row['listingAgent_name'] = listing_agent.get('name', '')
                 row['listingAgent_phone'] = listing_agent.get('phone', '')
+
+            # Generate Zillow URL
+            row['zillowUrl'] = generate_zillow_url(
+                home.get('addressLine1', ''),
+                home.get('city', ''),
+                home.get('state', ''),
+                home.get('zipCode', '')
+            )
 
             writer.writerow(row)
 
