@@ -375,7 +375,6 @@ def generate_html_report(csv_file, df, price_col, sqft_col, zip_col,
     <div class="header">
         <h1>🏠 Real Estate Analysis Report</h1>
         <p>Generated on {timestamp}</p>
-        <p>Data source: {Path(csv_file).name}</p>
     </div>
 
     <div class="map-container">
