@@ -910,7 +910,7 @@ def generate_index_html(base_tmp_dir, dated_dirs):
     <div class="container">
         <div class="header">
             <h1>Long Island Real Estate Reports</h1>
-            <p>Daily market analysis and property insights</p>
+            <p>Weekly Market analysis and property insights</p>
         </div>
 
         <div class="reports-grid">
@@ -919,7 +919,6 @@ def generate_index_html(base_tmp_dir, dated_dirs):
 
         <div class="footer">
             <p>Last updated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
-            <p>Total reports: {len(reports)}</p>
         </div>
     </div>
 </body>
