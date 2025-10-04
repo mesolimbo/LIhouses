@@ -243,6 +243,10 @@ def generate_report(csv_file, output_dir, date_str, stations, circles, api_key):
         lat = row.get('latitude')
         lng = row.get('longitude')
         if pd.notna(lat) and pd.notna(lng):
+            # Construct Zillow URL from ID field
+            property_id = str(row.get('id', ''))
+            zillow_url = f'https://www.zillow.com/homes/for_sale/{property_id}_rb/' if property_id else ''
+
             properties.append({
                 'lat': float(lat),
                 'lng': float(lng),
@@ -251,7 +255,7 @@ def generate_report(csv_file, output_dir, date_str, stations, circles, api_key):
                 'beds': int(row.get('bedrooms', 0)) if pd.notna(row.get('bedrooms')) else 0,
                 'baths': float(row.get('bathrooms', 0)) if pd.notna(row.get('bathrooms')) else 0,
                 'sqft': int(row.get('squareFootage', 0)) if pd.notna(row.get('squareFootage')) else 0,
-                'zillowUrl': str(row.get('zillowUrl', ''))
+                'zillowUrl': zillow_url
             })
 
     # Merge circles with station coordinates
@@ -522,6 +526,31 @@ def generate_report(csv_file, output_dir, date_str, stations, circles, api_key):
                 grid-template-columns: repeat(2, 1fr);
             }}
         }}
+
+        /* Remove borders from Google Maps InfoWindow elements */
+        .gm-style .gm-ui-hover-effect {{
+            border: 0 !important;
+            outline: 0 !important;
+            outline-width: 0 !important;
+            outline-style: none !important;
+            box-shadow: none !important;
+        }}
+
+        .gm-style .gm-ui-hover-effect:focus {{
+            border: 0 !important;
+            outline: 0 !important;
+            outline-width: 0 !important;
+            outline-style: none !important;
+            box-shadow: none !important;
+        }}
+
+        .gm-style .gm-ui-hover-effect:active {{
+            border: 0 !important;
+            outline: 0 !important;
+            outline-width: 0 !important;
+            outline-style: none !important;
+            box-shadow: none !important;
+        }}
     </style>
 </head>
 <body>
@@ -600,6 +629,7 @@ def generate_report(csv_file, output_dir, date_str, stations, circles, api_key):
     <script>
         let map;
         let markers = [];
+        let currentInfoWindow = null;
 
         // Data
         const properties = {properties_json};
@@ -674,7 +704,11 @@ def generate_report(csv_file, output_dir, date_str, stations, circles, api_key):
                 }});
 
                 marker.addListener('click', () => {{
+                    if (currentInfoWindow && currentInfoWindow !== infoWindow) {{
+                        currentInfoWindow.close();
+                    }}
                     infoWindow.open(map, marker);
+                    currentInfoWindow = infoWindow;
                 }});
             }});
 
@@ -704,7 +738,7 @@ def generate_report(csv_file, output_dir, date_str, stations, circles, api_key):
 
                 const infoContent = `
                     <div style="padding: 10px; max-width: 250px;">
-                        <a href="${{property.zillowUrl}}" target="_blank" style="font-size: 14px; color: #1e3c72; text-decoration: underline; font-weight: 600; display: block; margin-bottom: 8px;">
+                        <a href="${{property.zillowUrl}}" target="_blank" style="font-size: 14px; color: #1e3c72; text-decoration: underline; font-weight: 600; display: block; margin-bottom: 8px; border: none; outline: none; background: none;">
                             ${{property.address}}
                         </a>
                         <div style="font-size: 16px; font-weight: bold; color: #4CAF50; margin-bottom: 5px;">
@@ -721,7 +755,11 @@ def generate_report(csv_file, output_dir, date_str, stations, circles, api_key):
                 }});
 
                 marker.addListener('click', () => {{
+                    if (currentInfoWindow && currentInfoWindow !== infoWindow) {{
+                        currentInfoWindow.close();
+                    }}
                     infoWindow.open(map, marker);
+                    currentInfoWindow = infoWindow;
                 }});
 
                 markers.push(marker);
