@@ -481,11 +481,26 @@ def main():
     data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
     stations_csv = f"{data_dir}/MTA_Rail_Stations_with_zip.csv"
     zip_codes_file = f"{data_dir}/zipcodes.txt"
-    output_dir = os.path.join(os.path.dirname(__file__), '..', '..', '.tmp')
+    base_tmp_dir = os.path.join(os.path.dirname(__file__), '..', '..', '.tmp')
     max_price = 600000  # $600k budget
 
     # Generate timestamp for output files
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Create dated directory path (YYYYMMDD format)
+    date_str = datetime.now().strftime("%Y%m%d")
+    output_dir = os.path.join(base_tmp_dir, date_str)
+
+    # Check if dated directory already exists - exit early if work is done for today
+    if os.path.exists(output_dir):
+        print(f"Work already completed for today - {date_str} directory exists at {output_dir}")
+        print("Exiting early.")
+        sys.exit(0)
+
+    # Create the dated directory
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"Created output directory for today: {output_dir}")
+
     csv_output_file = f"{output_dir}/homes-{timestamp}.csv"
 
     # Check for required files
