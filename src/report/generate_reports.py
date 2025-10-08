@@ -615,7 +615,7 @@ def generate_report(csv_file, output_dir, date_str, stations, circles, api_key):
         <div class="zip-section">
             <div class="section-title">Top Zip Codes by Inventory</div>
             <div class="zip-grid">
-                {''.join([f'<div class="zip-card"><div class="zip-code">{zip_code}</div><div class="zip-count">{count} listings</div></div>' for zip_code, count in zip_counts.items()])}
+                {''.join([f'<div class="zip-card"><a href="https://bestneighborhood.org/best-neighborhoods-{zip_code}/" target="_blank" style="text-decoration: none;"><div class="zip-code">{zip_code}</div></a><div class="zip-count">{count} listings</div><a href="https://livabilityindex.aarp.org/search/{zip_code},%20United%20States" target="_blank" style="font-size: 0.85em; color: #667eea; text-decoration: none; margin-top: 5px; display: inline-block;">Livability</a></div>' for zip_code, count in zip_counts.items()])}
             </div>
         </div>
 
