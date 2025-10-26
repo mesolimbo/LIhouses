@@ -14,9 +14,10 @@ This feature creates a simple local web server and browser-based UI that wraps t
 **Language/Version**: Python 3.13+
 **Package Manager**: pipenv (dependencies pinned in Pipfile)
 **Primary Dependencies**:
+
   - Existing: pandas, numpy, matplotlib, seaborn, googlemaps, requests
   - New: Flask (web server), simple built-in subprocess/threading for script execution
-**Storage**: CSV files in data/, generated outputs in .tmp/, operation history in .tmp/operations.json
+**Storage**: CSV files in data/, generated outputs in .tmp/
 **Testing**: Manual testing in Git Bash + browser-based UI testing
 **Target Platform**: Git Bash (Windows), cross-platform Python
 **Execution**:
@@ -33,7 +34,6 @@ This feature creates a simple local web server and browser-based UI that wraps t
   - Two scripts to wrap (download data, generate reports)
   - Single web page with two buttons
   - Real-time output streaming from long-running scripts
-  - Simple operation history (last 20 operations)
 
 ## Constitution Check
 
@@ -44,7 +44,7 @@ Verify compliance with [LIhouses Constitution](../../../.specify/memory/constitu
 - [x] **Module-First Architecture**: Yes - Flask app as standalone module in `src/web/`
 - [x] **Dual Interface**: Yes - existing CLI scripts remain unchanged, web interface wraps them (fulfilling Dual Interface Pattern from constitution)
 - [x] **Dependencies**: Yes - Flask pinned in Pipfile (only new dependency beyond stdlib)
-- [x] **Data Separation**: Yes - operation history in .tmp/, no new data files, web templates in src/web/templates/
+- [x] **Data Separation**: Yes - no new data files, web templates in src/web/templates/
 - [x] **Git Bash Compatibility**: Yes - uses `os.path.join()`, subprocess module is cross-platform, Flask server works in Git Bash
 - [x] **Output Quality**: Yes - existing scripts already generate professional outputs, web UI just triggers them
 - [x] **Minimal Dependencies**: Yes - Flask is necessary (cannot build web server with stdlib alone), SSE uses built-in streaming (no Socket.IO/WebSockets library needed)
@@ -91,7 +91,6 @@ LIhouses/
 │           └── script.js   # Client-side logic for SSE
 ├── data/            # Input datasets (committed to repo) - unchanged
 └── .tmp/            # Generated outputs (NOT committed)
-    ├── operations.json      # NEW - operation history
     └── YYYYMMDD/           # Existing - script outputs
         ├── *.json          # Property data
         └── *.html          # Reports
@@ -130,11 +129,11 @@ LIhouses/
    ```bash
    # LIhouses API Keys
    # DO NOT COMMIT THIS FILE - it's in .gitignore
-
+   
    # RentCast API Key (for downloading property data)
    # Get your key from: https://www.rentcast.io/
    RENTCAST_API_KEY=your_rentcast_api_key_here
-
+   
    # Google Maps API Key (for generating reports with maps)
    # Get your key from: Google Cloud Console
    GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
@@ -150,7 +149,7 @@ LIhouses/
    ```bash
    # LIhouses API Keys - Template
    # Copy this file to .env and fill in your actual keys
-
+   
    RENTCAST_API_KEY=your_rentcast_api_key_here
    GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
    ```

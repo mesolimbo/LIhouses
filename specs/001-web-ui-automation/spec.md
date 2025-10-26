@@ -2,17 +2,18 @@
 
 **Feature Branch**: `001-web-ui-automation`
 **Created**: 2025-10-25
-**Status**: Draft
-**Input**: User description: "Set-up a basic server and a web ui that I can run locally so that I can 1) Download new data via API (using src/homes/rentcast_homes.py) and 2) Generate the latest reports (using src/report/generate_reports.py), all with the single click of a button."
+**Status**: Ready
+**Input**: User description: "Set-up a basic server and a web UI that I can run locally so that I can 1) Download new data via API (using src/homes/rentcast_homes.py) and 2) Generate the latest reports (using src/report/generate_reports.py), all with the single click of a button."
 
 ## Feature Overview
 
 **What Already Exists:**
+
 - `src/homes/rentcast_homes.py`: A working Python script that downloads property listing data from the RentCast API and saves it to dated directories
 - `src/report/generate_reports.py`: A working Python script that generates HTML reports with maps, charts, and statistics from the downloaded data
 
 **What This Feature Adds:**
-This feature creates a **local web server and user interface** that wraps the existing scripts, allowing users to trigger them through a browser instead of the command line. The core data download and report generation logic remains unchanged; we are only building the UI and server layer to make these operations accessible via web buttons.
+This feature creates a **local web server and user interface** that wraps the existing scripts, allowing users to trigger them through a browser instead of the command line. The core data download and report generation logic remains unchanged; we are only building the UI and server layer to make these operations accessible via web buttons (one-click).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -61,18 +62,16 @@ As a real estate analyst, I want to see real-time progress updates in the web in
 **Acceptance Scenarios**:
 
 1. **Given** a download or report generation is in progress, **When** I view the status panel, **Then** I see which operation is running, how long it has been running, and an indication of progress
-2. **Given** multiple operations have been performed, **When** I view the history panel, **Then** I see a log of past operations with timestamps, status (success/failure), and result summaries
 
 ---
 
 ### Edge Cases
 
-- What happens when the user closes the browser while a download or report generation is in progress?
-- How does the system handle concurrent requests (e.g., user clicks download twice rapidly)?
-- What happens if the system runs out of disk space during data download?
-- How does the system behave if required environment variables (API keys) are missing or invalid?
-- What happens if the data files exist but are corrupted or incomplete?
-- How does the system handle very large datasets that might take several minutes to process?
+- When the user closes the browser while a download or report generation is in progress, nothing should break. The underlying scripts should just finish their run.
+- The system handles concurrent requests (e.g., user clicks download twice rapidly) by blocking the UI to avoid multi-clicks, and by using temp lock files (with TTL information) so that the scripts can't be starter more than once a minute.
+- If required environment variables (API keys) are missing or invalid, the system display appropriate error messages.
+- If the data files exist but are corrupted or incomplete, the system displays an appropriate message.
+- The system handles very large datasets that might take several minutes to load/process by displaying a cycling "processing graphic"
 
 ## Requirements *(mandatory)*
 
@@ -96,7 +95,6 @@ As a real estate analyst, I want to see real-time progress updates in the web in
 - **FR-013**: Interface MUST validate that required environment variables exist before triggering scripts (RENTCAST_API_KEY, GOOGLE_MAPS_API_KEY)
 - **FR-014**: Interface MUST display error messages from the underlying Python scripts in a user-friendly format
 - **FR-015**: Interface MUST provide direct links to view generated report HTML files
-- **FR-016**: Interface MUST show operation history of past script executions with timestamps and results
 
 ### Key Entities
 

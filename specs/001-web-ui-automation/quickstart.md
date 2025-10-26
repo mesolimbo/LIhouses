@@ -12,21 +12,20 @@ This guide provides a quick-start implementation roadmap for building the local 
 
 Follow this order to build the feature incrementally, testing each component before moving to the next:
 
-### Phase 1: Basic Flask Server (30 minutes)
+### Phase 1: Basic Flask Server
 1. Create `src/web/app.py` with minimal Flask app
 2. Add route for `GET /` (serve "Hello World" HTML)
 3. Test: Run `pipenv run python src/web/app.py`, visit localhost:8080
 
-### Phase 2: Static UI (45 minutes)
+### Phase 2: Static UI
 4. Create `src/web/templates/index.html` with:
    - Two buttons: "Download Data" and "Generate Reports"
-   - Empty log viewer `<div>`
-   - Empty history panel `<div>`
+   - Empty log viewer `<div>
 5. Create `src/web/static/style.css` with basic layout
 6. Update `GET /` to serve template
 7. Test: Buttons visible and styled, no functionality yet
 
-### Phase 3: Script Execution (60 minutes)
+### Phase 3: Script Execution
 8. Create `src/web/executor.py` with:
    - `execute_script(script_type)` function using `subprocess.Popen`
    - Output capture logic (read stdout/stderr line-by-line)
@@ -35,34 +34,25 @@ Follow this order to build the feature incrementally, testing each component bef
 10. Validate input, check for running operation, call executor
 11. Test with curl: `curl -X POST localhost:8080/api/execute -d '{"operation_type":"download"}'`
 
-### Phase 4: Real-Time Streaming (60 minutes)
+### Phase 4: Real-Time Streaming
 12. Add `GET /api/stream/<operation_id>` route
 13. Implement SSE generator function (yield output lines)
 14. Create `src/web/static/script.js` with EventSource logic
 15. Connect buttons to POST /api/execute, then open SSE stream
 16. Test: Click button, see real-time output in console
 
-### Phase 5: UI Updates (45 minutes)
+### Phase 5: UI Updates
 17. Update `script.js` to append output to log viewer
 18. Add success/failure message display
 19. Disable buttons during operation
 20. Test: Full user flow works end-to-end
 
-### Phase 6: Operation History (45 minutes)
-21. Add `load_history()` and `save_history()` functions in `app.py`
-22. Save operation to `.tmp/operations.json` on completion
-23. Add `GET /api/operations` route
-24. Update `script.js` to load and display history on page load
-25. Test: Refresh page, see past operations
-
-### Phase 7: Polish (30 minutes)
+### Phase 6: Polish
 26. Add auto-browser-open on server startup (webbrowser module)
 27. Add environment variable validation before script execution
 28. Parse script output for result summary and links
 29. Add error handling for all edge cases
 30. Test: Complete user scenarios from spec
-
-**Total Estimated Time**: ~5 hours (for experienced Python/JS developer)
 
 ---
 
@@ -106,10 +96,6 @@ execution_state = {
     'output_thread': None
 }
 
-# Operation history file
-OPERATIONS_FILE = os.path.join('.tmp', 'operations.json')
-
-
 @app.route('/')
 def index():
     """Serve main UI"""
@@ -131,14 +117,6 @@ def execute_operation():
 def stream_operation(operation_id):
     """Stream real-time output via SSE"""
     # TODO: Implement SSE generator
-    pass
-
-
-@app.route('/api/operations', methods=['GET'])
-def get_operations():
-    """Get operation history"""
-    # TODO: Load from .tmp/operations.json
-    # TODO: Return last 20 operations
     pass
 
 
@@ -248,12 +226,6 @@ def _capture_output(process, operation, execution_state):
                 <h2>Output Log</h2>
                 <div id="log-output" class="log-content"></div>
             </section>
-
-            <!-- Operation History -->
-            <section class="history">
-                <h2>Recent Operations</h2>
-                <div id="history-list" class="history-content"></div>
-            </section>
         </main>
     </div>
 
@@ -273,14 +245,12 @@ def _capture_output(process, operation, execution_state):
 const btnDownload = document.getElementById('btn-download');
 const btnGenerate = document.getElementById('btn-generate');
 const logOutput = document.getElementById('log-output');
-const historyList = document.getElementById('history-list');
 
 // State
 let currentEventSource = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    loadOperationHistory();
     checkServerStatus();
 
     btnDownload.addEventListener('click', () => executeOperation('download'));
@@ -305,14 +275,6 @@ function streamOperationOutput(operationId) {
     // TODO: Create EventSource
     // TODO: Listen for 'output', 'completed', 'failed' events
     // TODO: Update UI accordingly
-}
-
-/**
- * Load operation history from server
- */
-async function loadOperationHistory() {
-    // TODO: GET /api/operations
-    // TODO: Display in history panel
 }
 
 /**
@@ -360,7 +322,6 @@ header {
 
 /* TODO: Add button styles */
 /* TODO: Add log viewer styles */
-/* TODO: Add history panel styles */
 ```
 
 ---
@@ -396,12 +357,6 @@ After implementing each phase, verify:
 - [ ] Error message appears on failure
 
 ### Phase 6 ✓
-- [ ] .tmp/operations.json created after first operation
-- [ ] GET /api/operations returns history
-- [ ] History panel displays past operations
-- [ ] Page refresh preserves history
-
-### Phase 7 ✓
 - [ ] Missing env var shows clear error before script runs
 - [ ] Generated report links are clickable
 - [ ] Browser closes gracefully on Ctrl+C
@@ -586,7 +541,6 @@ You're done when:
 - ✅ Browser opens automatically
 - ✅ Both buttons work (download data, generate reports)
 - ✅ Real-time output appears during script execution
-- ✅ Operation history persists across restarts
 - ✅ All error cases show clear messages
 - ✅ Existing scripts remain unchanged
 - ✅ No external dependencies beyond Flask
