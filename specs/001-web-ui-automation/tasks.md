@@ -20,10 +20,10 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create src/web/ directory for Flask web interface module
-- [ ] T002 Add Flask==3.1.2 to Pipfile dependencies
-- [ ] T003 [P] Create .env.example template file with RENTCAST_API_KEY and GOOGLE_MAPS_API_KEY placeholders in project root
-- [ ] T004 [P] Verify .env is in .gitignore to prevent committing API keys
+- [X] T001 Create src/web/ directory for Flask web interface module
+- [X] T002 Add Flask==3.1.2 to Pipfile dependencies
+- [X] T003 [P] Create .env.example template file with RENTCAST_API_KEY and GOOGLE_MAPS_API_KEY placeholders in project root
+- [X] T004 [P] Verify .env is in .gitignore to prevent committing API keys
 
 ---
 
@@ -33,11 +33,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create src/web/app.py with basic Flask app skeleton and route structure
-- [ ] T006 [P] Create src/web/templates/ directory for HTML templates
-- [ ] T007 [P] Create src/web/static/ directory for CSS and JavaScript files
-- [ ] T008 Create src/web/executor.py with script execution logic using subprocess.Popen
-- [ ] T009 Add global execution_state dictionary to app.py for tracking running operations
+- [X] T005 Create src/web/app.py with basic Flask app skeleton and route structure
+- [X] T006 [P] Create src/web/templates/ directory for HTML templates
+- [X] T007 [P] Create src/web/static/ directory for CSS and JavaScript files
+- [X] T008 Create src/web/executor.py with script execution logic using subprocess.Popen
+- [X] T009 Add global execution_state dictionary to app.py for tracking running operations
 - [ ] T012 Add environment variable loading using python-dotenv in src/web/app.py
 - [ ] T013 Implement validate_env_vars() function in src/web/app.py for API key validation
 - [ ] T014 Add webbrowser.open() call in src/web/app.py to auto-open browser on server startup

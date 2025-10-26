@@ -12,6 +12,44 @@ This project provides standalone utilities for analyzing the intersection of pub
 - Fetch and analyze property/rental market data by ZIP code
 - Create professional HTML reports with embedded visualizations
 - Automated report generation with historical tracking
+- Web interface for easy data management (new!)
+
+## Quick Start (Web Interface)
+
+The easiest way to use LIhouses is through the web interface:
+
+```bash
+# 1. Install dependencies
+make install
+
+# 2. Configure API keys
+cp .env.example .env
+# Edit .env and add your actual API keys
+
+# 3. Start the web interface
+make web
+```
+
+Browser opens automatically at http://localhost:8080
+
+**Makefile Commands:**
+- `make web` or `make start` - Start the web interface
+- Press `Ctrl+C` to stop the server
+- `make install` - Install dependencies
+- `make clean` - Remove temporary files
+
+**Required Environment Variables (.env file):**
+```bash
+# RentCast API Key (for downloading property data)
+RENTCAST_API_KEY=your_key_here
+
+# Google Maps API Key (for generating reports)
+GOOGLE_MAPS_API_KEY=your_key_here
+```
+
+Get keys from:
+- RentCast: https://www.rentcast.io/
+- Google Maps: https://console.cloud.google.com/
 
 ## Project Structure
 
@@ -20,9 +58,11 @@ LIhouses/
 ├── src/
 │   ├── core/        # Core geospatial utilities
 │   ├── homes/       # Property data fetching and processing
-│   └── report/      # Report generation and visualization
+│   ├── report/      # Report generation and visualization
+│   └── web/         # Web interface (Flask app)
 ├── data/            # Input datasets (MTA stations, ZIP codes, etc.)
 ├── .tmp/            # Generated outputs (reports, temp files)
+├── Makefile         # Convenient commands
 └── Pipfile          # Python dependencies
 ```
 

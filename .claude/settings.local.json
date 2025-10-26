@@ -6,7 +6,8 @@
       "Bash(cat:*)",
       "Bash(git fetch:*)",
       "Bash(git rev-parse:*)",
-      "Bash(.specify/scripts/bash/setup-plan.sh:*)"
+      "Bash(.specify/scripts/bash/setup-plan.sh:*)",
+      "Bash(gh pr create:*)"
     ],
     "deny": [],
     "ask": []
