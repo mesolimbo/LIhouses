@@ -20,10 +20,10 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create src/web/ directory for Flask web interface module
-- [ ] T002 Add Flask==3.1.2 to Pipfile dependencies
-- [ ] T003 [P] Create .env.example template file with RENTCAST_API_KEY and GOOGLE_MAPS_API_KEY placeholders in project root
-- [ ] T004 [P] Verify .env is in .gitignore to prevent committing API keys
+- [X] T001 Create src/web/ directory for Flask web interface module
+- [X] T002 Add Flask==3.1.2 to Pipfile dependencies
+- [X] T003 [P] Create .env.example template file with RENTCAST_API_KEY and GOOGLE_MAPS_API_KEY placeholders in project root
+- [X] T004 [P] Verify .env is in .gitignore to prevent committing API keys
 
 ---
 
@@ -33,13 +33,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create src/web/app.py with basic Flask app skeleton and route structure
-- [ ] T006 [P] Create src/web/templates/ directory for HTML templates
-- [ ] T007 [P] Create src/web/static/ directory for CSS and JavaScript files
-- [ ] T008 Create src/web/executor.py with script execution logic using subprocess.Popen
-- [ ] T009 Add global execution_state dictionary to app.py for tracking running operations
-- [ ] T010 [P] Create .tmp/ directory structure for operations.json history file
-- [ ] T011 Implement load_history() and save_history() functions in src/web/app.py for operation persistence
+- [X] T005 Create src/web/app.py with basic Flask app skeleton and route structure
+- [X] T006 [P] Create src/web/templates/ directory for HTML templates
+- [X] T007 [P] Create src/web/static/ directory for CSS and JavaScript files
+- [X] T008 Create src/web/executor.py with script execution logic using subprocess.Popen
+- [X] T009 Add global execution_state dictionary to app.py for tracking running operations
 - [ ] T012 Add environment variable loading using python-dotenv in src/web/app.py
 - [ ] T013 Implement validate_env_vars() function in src/web/app.py for API key validation
 - [ ] T014 Add webbrowser.open() call in src/web/app.py to auto-open browser on server startup
@@ -71,7 +69,6 @@
 - [ ] T027 [US1] Add button disable logic in src/web/static/script.js during operation execution
 - [ ] T028 [US1] Add success message display in src/web/static/script.js when operation completes
 - [ ] T029 [US1] Add error message display in src/web/static/script.js when operation fails
-- [ ] T030 [US1] Save completed operation to .tmp/operations.json in src/web/app.py after execution finishes
 - [ ] T031 [US1] Test in Git Bash: pipenv run python src/web/app.py, click Download Data button, verify CSV output in .tmp/
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - users can trigger data downloads via web button
@@ -101,16 +98,14 @@
 
 ## Phase 5: User Story 3 - Monitor Script Execution Status (Priority: P3)
 
-**Goal**: Show real-time progress updates and operation history in the web interface so users know scripts are working and can estimate completion time
+**Goal**: Show real-time progress updates in the web interface so users know scripts are working and can estimate completion time
 
-**Independent Test**: Trigger either script via web UI, verify that console output from Python scripts is captured and displayed in real-time in the browser, and that operation history shows past executions
+**Independent Test**: Trigger either script via web UI, verify that console output from Python scripts is captured and displayed in real-time in the browser
 
 ### Implementation for User Story 3
 
 - [ ] T040 [P] [US3] Add log viewer section to src/web/templates/index.html with scrollable output area
-- [ ] T041 [P] [US3] Add operation history panel to src/web/templates/index.html
 - [ ] T042 [P] [US3] Style log viewer with monospace font and scrolling in src/web/static/style.css
-- [ ] T043 [P] [US3] Style history panel with timestamp and status indicators in src/web/static/style.css
 - [ ] T044 [US3] Implement GET /api/stream/<operation_id> route in src/web/app.py for Server-Sent Events
 - [ ] T045 [US3] Implement event_stream() generator function in src/web/app.py to yield SSE events
 - [ ] T046 [US3] Add heartbeat events (every 15 seconds) to SSE stream in src/web/app.py to prevent connection drops
@@ -121,9 +116,6 @@
 - [ ] T051 [US3] Add event listener for 'output' events to append lines to log viewer in src/web/static/script.js
 - [ ] T052 [US3] Add event listener for 'completed' events to show success message in src/web/static/script.js
 - [ ] T053 [US3] Add event listener for 'failed' events to show error message in src/web/static/script.js
-- [ ] T054 [US3] Implement GET /api/operations route in src/web/app.py to return last 20 operations from history
-- [ ] T055 [US3] Implement loadOperationHistory() function in src/web/static/script.js to fetch and display history
-- [ ] T056 [US3] Call loadOperationHistory() on page load in src/web/static/script.js
 - [ ] T057 [US3] Implement GET /api/status route in src/web/app.py to return current running operation
 - [ ] T058 [US3] Implement checkServerStatus() function in src/web/static/script.js to poll server status on page load
 - [ ] T059 [US3] Auto-reconnect to SSE stream if operation was running when page loaded in src/web/static/script.js
@@ -143,7 +135,6 @@
 - [ ] T064 [P] Ensure all file paths use os.path.join() for cross-platform compatibility in src/web/app.py and src/web/executor.py
 - [ ] T065 [P] Add CORS headers to Flask responses in src/web/app.py for strict browser compatibility
 - [ ] T066 Add limit of 1000 lines for operation output_lines to prevent memory issues in src/web/executor.py
-- [ ] T067 Add limit of 20 operations to operation history with FIFO cleanup in src/web/app.py
 - [ ] T068 [P] Add module docstrings to src/web/app.py and src/web/executor.py explaining purpose and usage
 - [ ] T069 [P] Add inline comments for complex streaming logic in src/web/app.py
 - [ ] T070 Verify PEP 8 compliance for all Python files in src/web/ using ruff check
@@ -154,12 +145,11 @@
 - [ ] T075 Test edge case: Missing RENTCAST_API_KEY, verify clear error message before script runs
 - [ ] T076 Test edge case: Missing GOOGLE_MAPS_API_KEY, verify clear error message before script runs
 - [ ] T077 Test edge case: No data exists, verify generate reports shows helpful message
-- [ ] T078 Test edge case: Corrupted .tmp/operations.json, verify server starts with fresh history
 - [ ] T079 [P] Update project README.md with web interface usage instructions
 - [ ] T080 [P] Add example commands to start web server in README.md
 - [ ] T081 Run pipenv install clean test on fresh environment to verify dependencies
 - [ ] T082 Verify web UI works in Chrome, Firefox, and Edge browsers
-- [ ] T083 Final end-to-end test: Download data → Generate reports → View history → Verify all outputs
+- [ ] T083 Final end-to-end test: Download data → Generate reports → Verify all outputs
 
 ---
 
@@ -238,7 +228,7 @@ With multiple developers:
 2. Once Foundational is done:
    - Developer A: User Story 1 (download UI)
    - Developer B: User Story 2 (reports UI)
-   - Developer C: User Story 3 (streaming/history)
+   - Developer C: User Story 3 (streaming)
 3. Stories integrate smoothly due to modular design
 
 ---
@@ -248,7 +238,7 @@ With multiple developers:
 - **Total Tasks**: 83
 - **User Story 1 (P1)**: 17 tasks - Download data via web button
 - **User Story 2 (P2)**: 8 tasks - Generate reports via web button
-- **User Story 3 (P3)**: 21 tasks - Real-time monitoring and history
+- **User Story 3 (P3)**: 21 tasks - Real-time monitoring
 - **Setup + Foundational**: 14 tasks - Required before any stories
 - **Polish**: 23 tasks - Production readiness
 - **Parallel Opportunities**: 29 tasks marked [P] can run concurrently

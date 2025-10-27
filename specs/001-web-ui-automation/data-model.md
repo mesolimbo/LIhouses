@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document defines the data structures used by the web interface to manage script execution state and operation history. Note that this feature does NOT modify the data models of the existing scripts (rentcast_homes.py and generate_reports.py) - those remain unchanged.
+This document defines the data structures used by the web interface to manage script execution state. Note that this feature does NOT modify the data models of the existing scripts (rentcast_homes.py and generate_reports.py) - those remain unchanged.
 
 ## Core Entities
 
@@ -14,7 +14,7 @@ This document defines the data structures used by the web interface to manage sc
 
 Represents a single execution of a Python script triggered via the web UI.
 
-**Purpose**: Track script execution state, capture output, and persist history.
+**Purpose**: Track script execution state and capture output.
 
 **Fields**:
 
@@ -82,36 +82,7 @@ Represents a single execution of a Python script triggered via the web UI.
 }
 ```
 
-### 2. OperationHistory
-
-Represents the collection of all past operations, persisted to disk.
-
-**Purpose**: Provide operation history across server restarts, show in UI.
-
-**Fields**:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `operations` | array[Operation] | List of all operations, newest first |
-
-**Storage**:
-- File: `.tmp/operations.json`
-- Format: JSON
-- Max size: Last 20 operations (FIFO - oldest removed when exceeding)
-- Loaded on server startup, saved after each operation
-
-**Example**:
-```json
-{
-  "operations": [
-    { "id": "...", "type": "generate", "status": "completed", "..." },
-    { "id": "...", "type": "download", "status": "completed", "..." },
-    { "id": "...", "type": "download", "status": "failed", "..." }
-  ]
-}
-```
-
-### 3. ExecutionState (In-Memory Only)
+### 2. ExecutionState (In-Memory Only)
 
 Represents the currently running operation (if any).
 
@@ -145,10 +116,7 @@ execution_state['output_thread'] = None
 ExecutionState (in-memory)
     │
     ├─ 1:0..1 → Operation (current)
-    │           └─ 1:0..1 → subprocess.Popen
-    │
-OperationHistory (persisted to .tmp/operations.json)
-    └─ 1:N → Operation (past operations)
+                └─ 1:0..1 → subprocess.Popen
 ```
 
 ## Data Flow
@@ -169,17 +137,9 @@ OperationHistory (persisted to .tmp/operations.json)
 9. Backend streams output lines to frontend via SSE
 10. When script completes:
     - Backend updates Operation (status, exit_code, end_time)
-    - Backend appends to OperationHistory (saved to JSON)
     - Backend clears ExecutionState
     - Backend sends final SSE event with completion status
     - Frontend closes SSE connection
-
-### Viewing Operation History
-
-1. Frontend requests GET `/api/operations`
-2. Backend reads `.tmp/operations.json`
-3. Backend returns array of last 20 operations
-4. Frontend displays in history panel
 
 ## Validation Rules
 
@@ -213,21 +173,13 @@ if execution_state['current_operation'] is not None:
 
 ### 1. User Closes Browser During Execution
 - Script continues running on server
-- Operation remains in ExecutionState
-- When user reopens browser, can view operation in history as "completed" (if finished) or reconnect to stream (if still running)
+- Operation remains in ExecutionState for a limited amount of time
 
 ### 2. Server Crashes During Execution
 - Operation lost (not persisted until completion)
-- On restart, operation history shows last completed operation
-- Running operation appears "stuck" - user can retry
+- Running operation appears "stuck" for a limited time - user can retry
 
-### 3. Operations File Corruption
-- On startup, if `.tmp/operations.json` is invalid JSON:
-  - Log warning to console
-  - Create fresh empty history
-  - Server continues normally
-
-### 4. Output Exceeds 1000 Lines
+### 3. Output Exceeds 1000 Lines
 - Keep only last 1000 lines in memory
 - Older lines dropped (FIFO)
 - SSE clients see all lines in real-time (not truncated during streaming)
@@ -241,42 +193,9 @@ This feature does NOT define data models for:
 
 The web UI only manages:
 - Operation execution state
-- Operation history
 - Real-time output streaming
 
 ## Implementation Notes
-
-### Storage Format
-
-**JSON File (`.tmp/operations.json`)**:
-```python
-import json
-import os
-
-OPERATIONS_FILE = os.path.join('.tmp', 'operations.json')
-
-def load_history():
-    """Load operation history from disk"""
-    if not os.path.exists(OPERATIONS_FILE):
-        return {"operations": []}
-
-    try:
-        with open(OPERATIONS_FILE, 'r') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        print(f"Warning: Could not load operation history: {e}")
-        return {"operations": []}
-
-def save_history(history):
-    """Save operation history to disk"""
-    os.makedirs(os.path.dirname(OPERATIONS_FILE), exist_ok=True)
-
-    # Keep only last 20 operations
-    history['operations'] = history['operations'][:20]
-
-    with open(OPERATIONS_FILE, 'w') as f:
-        json.dump(history, f, indent=2)
-```
 
 ### In-Memory State
 
@@ -293,9 +212,9 @@ execution_state = {
 
 The data model is intentionally minimal:
 - **1 main entity** (Operation) with clear state transitions
-- **1 persistence layer** (JSON file, 20 operations max)
 - **1 in-memory state** (current execution lock)
 - **No database** (unnecessary for single-user local app)
 - **No complex relationships** (flat structure)
+- **No history**
 
 This simplicity aligns with the "keep things as simple as possible" directive and the constitution's principle of minimal dependencies.

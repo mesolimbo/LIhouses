@@ -67,18 +67,17 @@ This document records the technical research and decisions made during Phase 0 o
 
 ### Decision 4: State Management
 
-**Decision**: In-memory dictionary + simple JSON file for operation history
+**Decision**: In-memory dictionary
 
 **Rationale**:
 - No database needed for single user
-- JSON file in .tmp/ persists history across server restarts
 - In-memory dict tracks current running operation (only one at a time)
 - Simple to implement (10 lines of code)
 - Aligns with "data separation" principle (.tmp/ for outputs)
 
 **Alternatives Considered**:
 - **SQLite database**: Overkill for storing 20 operation records
-- **No persistence**: Would lose history on server restart
+- **No persistence ok**: Can lose history on server restart without consequence
 - **Complex state machine**: Not needed - only 3 states (idle, running, completed)
 
 ### Decision 5: Frontend Technology
@@ -159,7 +158,7 @@ This document records the technical research and decisions made during Phase 0 o
 ## Open Questions Resolved
 
 1. **Q: How to handle script failures?**
-   - A: Capture stderr separately, display in red in log viewer, mark operation as "failed" in history
+   - A: Capture stderr separately, display in red in log viewer
 
 2. **Q: Should we support stopping running scripts?**
    - A: No - adds complexity (process management, cleanup), not in requirements. User can Ctrl+C server if needed.
@@ -189,7 +188,7 @@ This document records the technical research and decisions made during Phase 0 o
 
 ### Error Handling
 - Wrap all subprocess calls in try/except
-- Log errors to both server console and operation history
+- Log errors to server console
 - Return meaningful HTTP status codes (200, 400, 500)
 - Never expose internal paths or stack traces to browser
 
@@ -197,7 +196,6 @@ This document records the technical research and decisions made during Phase 0 o
 - Validate operation type (only "download" or "generate")
 - Use `os.path.join()` for all file paths (prevent directory traversal)
 - Never pass user input directly to shell
-- Limit operation history size (prevent unbounded growth)
 
 ## Dependencies to Add
 

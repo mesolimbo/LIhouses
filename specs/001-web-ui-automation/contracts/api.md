@@ -11,7 +11,6 @@ This document defines the HTTP API contract for the Flask web server. The API pr
 1. Serve the single-page UI
 2. Execute Python scripts (download/generate)
 3. Stream script output in real-time via SSE
-4. Retrieve operation history
 
 **Design Principles**:
 - RESTful where applicable (GET for queries, POST for actions)
@@ -28,7 +27,7 @@ This document defines the HTTP API contract for the Flask web server. The API pr
 **Response**:
 - **Status**: 200 OK
 - **Content-Type**: `text/html`
-- **Body**: HTML page with buttons, log viewer, history panel
+- **Body**: HTML page with buttons, log viewer
 
 **Example**:
 ```http
@@ -147,28 +146,28 @@ Content-Type: application/json
    ```
    event: output
    data: {"line": "Fetching data for zip code 11772..."}
-
+   
    ```
 
 2. **`completed` event**: Script finished successfully
    ```
    event: completed
    data: {"exit_code": 0, "summary": "245 listings downloaded", "links": []}
-
+   
    ```
 
 3. **`failed` event**: Script failed with error
    ```
    event: failed
    data: {"exit_code": 1, "error": "Missing required environment variable: RENTCAST_API_KEY"}
-
+   
    ```
 
 4. **`heartbeat` event**: Keep-alive ping (every 15 seconds)
    ```
    event: heartbeat
    data: {}
-
+   
    ```
 
 **Client Usage**:
@@ -232,70 +231,7 @@ data: {"exit_code": 0, "summary": "245 listings downloaded", "links": []}
 
 ---
 
-### 4. GET /api/operations
-
-**Purpose**: Retrieve operation history (last 20 operations)
-
-**Response**:
-- **Status**: 200 OK
-- **Content-Type**: `application/json`
-- **Body**:
-  ```json
-  {
-    "operations": [
-      {
-        "id": "a7f3c8e1-4b2d-4f9a-8c3e-1d5e6f7a8b9c",
-        "type": "download",
-        "status": "completed",
-        "start_time": "2025-10-25T14:23:45.123456",
-        "end_time": "2025-10-25T14:28:12.654321",
-        "exit_code": 0,
-        "result_summary": "245 listings downloaded"
-      },
-      {
-        "id": "b8e4d9f2-5c3e-4g0b-9d4f-2e6f7g8a9c0d",
-        "type": "generate",
-        "status": "failed",
-        "start_time": "2025-10-25T15:10:30.000000",
-        "end_time": "2025-10-25T15:10:32.500000",
-        "exit_code": 1,
-        "error_message": "Missing required environment variable: GOOGLE_MAPS_API_KEY"
-      }
-    ]
-  }
-  ```
-
-**Notes**:
-- Operations are sorted by `start_time` descending (newest first)
-- Includes up to last 20 operations
-- If no operations exist, returns `{"operations": []}`
-
-**Example**:
-```http
-GET /api/operations HTTP/1.1
-Host: localhost:8080
-
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "operations": [
-    {
-      "id": "a7f3c8e1-4b2d-4f9a-8c3e-1d5e6f7a8b9c",
-      "type": "download",
-      "status": "completed",
-      "start_time": "2025-10-25T14:23:45.123456",
-      "end_time": "2025-10-25T14:28:12.654321",
-      "exit_code": 0,
-      "result_summary": "245 listings downloaded"
-    }
-  ]
-}
-```
-
----
-
-### 5. GET /api/status
+### 4. GET /api/status
 
 **Purpose**: Check server status and current running operation (if any)
 
@@ -445,18 +381,6 @@ Access-Control-Allow-Headers: Content-Type
 
 ---
 
-## WebSocket Alternative (Rejected)
-
-This API uses SSE instead of WebSockets because:
-- SSE is simpler (one-way server→client streaming)
-- SSE uses plain HTTP (no protocol upgrade)
-- SSE has built-in reconnection
-- We don't need client→server messaging during streaming
-
-If we needed bidirectional communication (e.g., cancel button), we would use WebSockets. For this simple use case, SSE is sufficient.
-
----
-
 ## Implementation Notes
 
 ### Flask Route Mapping
@@ -478,11 +402,6 @@ def execute_operation():
 @app.route('/api/stream/<operation_id>')
 def stream_operation(operation_id):
     # SSE implementation
-    pass
-
-@app.route('/api/operations', methods=['GET'])
-def get_operations():
-    # Implementation
     pass
 
 @app.route('/api/status', methods=['GET'])
@@ -537,12 +456,8 @@ curl -X POST http://localhost:8080/api/execute \
 curl -N http://localhost:8080/api/stream/{operation_id}
 ```
 
-**Get operation history**:
-```bash
-curl http://localhost:8080/api/operations
-```
-
 **Check server status**:
+
 ```bash
 curl http://localhost:8080/api/status
 ```
@@ -554,7 +469,6 @@ curl http://localhost:8080/api/status
 This API provides a minimal yet complete interface for:
 - ✅ Triggering script execution with validation
 - ✅ Real-time output streaming via SSE
-- ✅ Operation history retrieval
 - ✅ Server status checking
 - ✅ Static asset serving for UI
 
