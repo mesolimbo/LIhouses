@@ -13,7 +13,7 @@ import sys
 import json
 import time
 import webbrowser
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, send_from_directory
 from dotenv import load_dotenv
 from executor import execute_script
 
@@ -98,7 +98,8 @@ def execute_operation():
             }), 400
 
         # Check for running operation
-        if execution_state['current_operation'] is not None:
+        current_op = execution_state['current_operation']
+        if current_op is not None and current_op['status'] == 'running':
             return jsonify({
                 "status": "error",
                 "error": "Cannot start operation: another operation is already running"
@@ -149,62 +150,74 @@ def stream_operation(operation_id):
     """
     def event_stream():
         """Generator function for SSE."""
-        # Get current operation
-        operation = execution_state.get('current_operation')
+        try:
+            # Get current operation
+            operation = execution_state.get('current_operation')
 
-        if not operation or operation['id'] != operation_id:
-            yield f"event: error\ndata: {json.dumps({'error': 'Operation not found'})}\n\n"
+            if not operation or operation['id'] != operation_id:
+                yield f"event: error\ndata: {json.dumps({'error': 'Operation not found'})}\n\n"
+                return
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'error': f'Failed to get operation: {str(e)}'})}\n\n"
             return
 
-        # Track which lines we've already sent
-        sent_lines = 0
-        last_heartbeat = time.time()
+        try:
+            # Track which lines we've already sent
+            sent_lines = 0
+            last_heartbeat = time.time()
 
-        # Stream existing output lines
-        current_lines = list(operation['output_lines'])
-        for line in current_lines:
-            yield f"event: output\ndata: {json.dumps({'line': line})}\n\n"
-        sent_lines = len(current_lines)
+            # Stream existing output lines
+            current_lines = list(operation['output_lines'])
+            for line in current_lines:
+                yield f"event: output\ndata: {json.dumps({'line': line})}\n\n"
+            sent_lines = len(current_lines)
 
-        # Stream new output as it arrives
-        while operation['status'] == 'running':
-            # Check for new lines
+            # Stream new output as it arrives
+            while operation['status'] == 'running':
+                # Check for new lines
+                current_lines = list(operation['output_lines'])
+                if len(current_lines) > sent_lines:
+                    # Send new lines
+                    for line in current_lines[sent_lines:]:
+                        yield f"event: output\ndata: {json.dumps({'line': line})}\n\n"
+                    sent_lines = len(current_lines)
+                    last_heartbeat = time.time()
+
+                # Send heartbeat to keep connection alive
+                if time.time() - last_heartbeat > 15:
+                    yield f"event: heartbeat\ndata: {json.dumps({})}\n\n"
+                    last_heartbeat = time.time()
+
+                # Small delay to avoid busy-waiting
+                time.sleep(0.1)
+
+            # Send any final lines
             current_lines = list(operation['output_lines'])
             if len(current_lines) > sent_lines:
-                # Send new lines
                 for line in current_lines[sent_lines:]:
                     yield f"event: output\ndata: {json.dumps({'line': line})}\n\n"
-                sent_lines = len(current_lines)
-                last_heartbeat = time.time()
 
-            # Send heartbeat to keep connection alive
-            if time.time() - last_heartbeat > 15:
-                yield f"event: heartbeat\ndata: {json.dumps({})}\n\n"
-                last_heartbeat = time.time()
+            # Send completion event
+            if operation['status'] == 'completed':
+                event_data = {
+                    'exit_code': operation['exit_code'],
+                    'summary': operation['result_summary'],
+                    'links': operation['report_links'],
+                    'stats': operation['download_stats']
+                }
+                yield f"event: completed\ndata: {json.dumps(event_data)}\n\n"
+            else:
+                event_data = {
+                    'exit_code': operation['exit_code'],
+                    'error': operation['error_message']
+                }
+                yield f"event: failed\ndata: {json.dumps(event_data)}\n\n"
 
-            # Small delay to avoid busy-waiting
-            time.sleep(0.1)
-
-        # Send any final lines
-        current_lines = list(operation['output_lines'])
-        if len(current_lines) > sent_lines:
-            for line in current_lines[sent_lines:]:
-                yield f"event: output\ndata: {json.dumps({'line': line})}\n\n"
-
-        # Send completion event
-        if operation['status'] == 'completed':
-            event_data = {
-                'exit_code': operation['exit_code'],
-                'summary': operation['result_summary'],
-                'links': operation['report_links']
-            }
-            yield f"event: completed\ndata: {json.dumps(event_data)}\n\n"
-        else:
-            event_data = {
-                'exit_code': operation['exit_code'],
-                'error': operation['error_message']
-            }
-            yield f"event: failed\ndata: {json.dumps(event_data)}\n\n"
+        except Exception as e:
+            # Log error and send error event
+            import traceback
+            traceback.print_exc()
+            yield f"event: error\ndata: {json.dumps({'error': f'Stream error: {str(e)}'})}\n\n"
 
     return Response(
         event_stream(),
@@ -227,7 +240,7 @@ def get_status():
     """
     operation = execution_state.get('current_operation')
 
-    if operation:
+    if operation and operation['status'] == 'running':
         operation_info = {
             'id': operation['id'],
             'type': operation['type'],
@@ -241,6 +254,22 @@ def get_status():
         'server_status': 'running',
         'current_operation': operation_info
     }), 200
+
+
+@app.route('/reports/<path:filename>')
+def serve_report(filename):
+    """
+    Serve report files from the .tmp directory.
+
+    Args:
+        filename (str): The relative path to the report file (e.g., "20250126/index.html")
+
+    Returns:
+        The requested file or 404 if not found
+    """
+    # Get the project root (two levels up from this file)
+    reports_dir = os.path.join(os.getcwd(), '.tmp')
+    return send_from_directory(reports_dir, filename)
 
 
 @app.after_request

@@ -60,18 +60,29 @@ def execute_script(script_type, execution_state):
         "output_lines": deque(maxlen=MAX_OUTPUT_LINES),
         "error_message": None,
         "result_summary": None,
-        "report_links": None
+        "report_links": None,
+        "download_stats": None
     }
 
     # Start subprocess
     try:
+        # Set environment variables
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'utf-8'
+        # Set matplotlib to use non-interactive backend (required for subprocess)
+        env['MPLBACKEND'] = 'Agg'
+
+        # Use pipenv run to execute in the proper environment
         process = subprocess.Popen(
-            [sys.executable, script_path],
+            ['pipenv', 'run', 'python', script_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=1,
-            universal_newlines=True,
-            cwd=os.getcwd()
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            cwd=os.getcwd(),
+            env=env
         )
     except Exception as e:
         raise RuntimeError(f"Failed to start script: {str(e)}")
@@ -123,6 +134,9 @@ def _capture_output(process, operation, execution_state):
             # Try to extract report links if generate operation
             if operation['type'] == 'generate':
                 operation['report_links'] = _extract_report_links(operation)
+            # Try to extract download stats if download operation
+            elif operation['type'] == 'download':
+                operation['download_stats'] = _extract_download_stats(operation)
         else:
             operation['status'] = 'failed'
             operation['error_message'] = _extract_error_message(operation)
@@ -151,23 +165,36 @@ def _extract_result_summary(operation):
     Returns:
         str: Result summary or None
     """
-    # Look for specific patterns in the output
-    output_lines = list(operation['output_lines'])
+    try:
+        # Look for specific patterns in the output
+        output_lines = list(operation['output_lines'])
 
-    for line in reversed(output_lines):
-        # Look for completion messages
-        if 'Complete!' in line or 'saved to' in line:
-            return line
-        if 'listings' in line and 'zip' in line:
-            return line
+        # For download operations, provide a clean summary
+        if operation['type'] == 'download':
+            # Look for listing count information
+            for line in reversed(output_lines):
+                if 'listings' in line.lower():
+                    # Extract just the count info
+                    return "Data download completed successfully"
+            return "Data download completed successfully"
 
-    # Default summary
-    if operation['type'] == 'download':
-        return "Data download completed successfully"
-    elif operation['type'] == 'generate':
-        return "Report generation completed successfully"
+        # For generate operations, look for report generation messages
+        elif operation['type'] == 'generate':
+            # Check for index generation or report generation
+            for line in reversed(output_lines):
+                if 'index saved to' in line.lower():
+                    return "Reports generated successfully"
+                if 'report saved to' in line.lower():
+                    return "Reports generated successfully"
+                if 'all reports generated successfully' in line.lower():
+                    return "Reports generated successfully"
+                if 'report already exists' in line.lower():
+                    return "Reports up to date (already generated)"
+            return "Report generation completed successfully"
 
-    return "Operation completed successfully"
+        return "Operation completed successfully"
+    except Exception:
+        return "Operation completed successfully"
 
 
 def _extract_report_links(operation):
@@ -178,22 +205,86 @@ def _extract_report_links(operation):
         operation (dict): The Operation dict
 
     Returns:
-        list: List of report file paths or None
+        list: List of relative report paths (e.g., ["index.html"]) or None
     """
-    # Look for .html files in the output
-    output_lines = list(operation['output_lines'])
-    report_links = []
+    try:
+        # Look for .html files in the output
+        output_lines = list(operation['output_lines'])
+        report_links = []
+        index_link = None
 
-    for line in output_lines:
-        if '.html' in line and '.tmp' in line:
-            # Try to extract file path
-            # Look for patterns like "saved to: .tmp/YYYYMMDD/filename.html"
-            parts = line.split()
-            for part in parts:
-                if part.endswith('.html') and '.tmp' in part:
-                    report_links.append(part)
+        for line in output_lines:
+            # Look for "saved to:" patterns
+            if 'saved to:' in line.lower() and '.html' in line:
+                # Try to extract file path after "saved to:"
+                parts = line.split('saved to:')
+                if len(parts) > 1:
+                    file_path = parts[1].strip()
 
-    return report_links if report_links else None
+                    # Handle paths with .tmp in them
+                    if '.tmp' in file_path:
+                        # Convert to relative path (remove .tmp/ prefix and any backslashes)
+                        # Handle both forward slashes and backslashes
+                        relative_path = file_path.replace('\\', '/').split('.tmp/')[-1]
+
+                        # Prioritize index.html
+                        if 'index.html' in relative_path:
+                            index_link = relative_path
+                        else:
+                            report_links.append(relative_path)
+
+        # Return index.html as the primary link if found
+        if index_link:
+            return [index_link]
+
+        return report_links if report_links else None
+    except Exception:
+        return None
+
+
+def _extract_download_stats(operation):
+    """
+    Extract download statistics from the operation output.
+
+    Args:
+        operation (dict): The Operation dict
+
+    Returns:
+        dict: Download stats or None
+    """
+    try:
+        # Look for listing count information
+        output_lines = list(operation['output_lines'])
+        import re
+
+        # Look for the final total count first (most accurate)
+        for line in reversed(output_lines):
+            # Match patterns like "Total Long Island homes loaded: 234"
+            if 'total long island homes loaded' in line.lower():
+                match = re.search(r'loaded:\s*(\d+)', line.lower())
+                if match:
+                    count = match.group(1)
+                    return {'listings': count}
+
+            # Match patterns like "Total homes found: 234"
+            if 'total homes found' in line.lower():
+                match = re.search(r'found:\s*(\d+)', line.lower())
+                if match:
+                    count = match.group(1)
+                    return {'listings': count}
+
+        # Fallback: look for any listing count
+        for line in reversed(output_lines):
+            if 'listing' in line.lower():
+                match = re.search(r'(\d+)\s+listing', line.lower())
+                if match:
+                    count = match.group(1)
+                    return {'listings': count}
+
+        return None
+    except Exception:
+        # If extraction fails, just return None
+        return None
 
 
 def _extract_error_message(operation):

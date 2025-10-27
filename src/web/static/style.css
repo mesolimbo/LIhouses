@@ -157,7 +157,8 @@ main {
     font-weight: 500;
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 20px;
 }
 
 .status-message.hidden {
@@ -261,23 +262,39 @@ main {
 
 /* Report Links */
 .report-links {
-    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: #047857;
 }
 
 .report-links a {
     display: inline-block;
     padding: 8px 16px;
-    margin: 4px 8px 4px 0;
-    background: var(--primary-color);
+    background: #047857;
     color: white;
     text-decoration: none;
-    border-radius: 4px;
+    border-radius: 6px;
     font-size: 0.9rem;
-    transition: background 0.2s ease;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .report-links a:hover {
-    background: var(--primary-dark);
+    background: #065f46;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Download Stats */
+.download-stats {
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    color: #047857;
+    font-size: 0.95rem;
 }
 
 /* Footer */

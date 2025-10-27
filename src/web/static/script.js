@@ -18,6 +18,7 @@ const statusMessage = document.getElementById('status-message');
 // State
 let currentEventSource = null;
 let isOperationRunning = false;
+let currentOperationType = null;
 
 /**
  * Initialize on page load
@@ -47,6 +48,7 @@ async function executeOperation(operationType) {
 
     try {
         // Disable buttons
+        currentOperationType = operationType;
         setButtonsEnabled(false);
         isOperationRunning = true;
 
@@ -84,6 +86,7 @@ async function executeOperation(operationType) {
         showStatusMessage('error', `Error: ${error.message}`);
         setButtonsEnabled(true);
         isOperationRunning = false;
+        currentOperationType = null;
     }
 }
 
@@ -114,16 +117,21 @@ function streamOperationOutput(operationId) {
         console.log('Operation completed:', data);
 
         // Show success message
-        let message = `✓ ${data.summary || 'Operation completed successfully'}`;
+        let message = `<span>✓ ${data.summary || 'Operation completed successfully'}</span>`;
 
-        // Add report links if available
+        // Add report links if available (for generate operations)
         if (data.links && data.links.length > 0) {
             message += '<div class="report-links">Reports: ';
             data.links.forEach((link, index) => {
                 const filename = link.split('/').pop();
-                message += `<a href="/${link}" target="_blank">${filename}</a> `;
+                message += `<a href="/reports/${link}" target="_blank">${filename}</a> `;
             });
             message += '</div>';
+        }
+
+        // Add download stats if available (for download operations)
+        if (data.stats && data.stats.listings) {
+            message += `<div class="download-stats">${data.stats.listings} listings downloaded</div>`;
         }
 
         showStatusMessage('success', message);
@@ -133,6 +141,7 @@ function streamOperationOutput(operationId) {
         currentEventSource = null;
         setButtonsEnabled(true);
         isOperationRunning = false;
+        currentOperationType = null;
     });
 
     // Listen for 'failed' events
@@ -147,6 +156,7 @@ function streamOperationOutput(operationId) {
         currentEventSource = null;
         setButtonsEnabled(true);
         isOperationRunning = false;
+        currentOperationType = null;
     });
 
     // Listen for 'error' events
@@ -163,6 +173,7 @@ function streamOperationOutput(operationId) {
         currentEventSource = null;
         setButtonsEnabled(true);
         isOperationRunning = false;
+        currentOperationType = null;
     });
 
     // Listen for 'heartbeat' events (just to keep connection alive)
@@ -184,6 +195,7 @@ async function checkServerStatus() {
             console.log('Found running operation:', data.current_operation);
 
             // Disable buttons
+            currentOperationType = data.current_operation.type;
             setButtonsEnabled(false);
             isOperationRunning = true;
 
@@ -266,15 +278,21 @@ function hideStatusMessage() {
  * @param {boolean} enabled - Whether buttons should be enabled
  */
 function setButtonsEnabled(enabled) {
-    btnDownload.disabled = !enabled;
-    btnGenerate.disabled = !enabled;
-
     if (!enabled) {
-        // Add loading indicator
-        btnDownload.innerHTML = '<span class="loading"></span><span>Running...</span>';
-        btnGenerate.innerHTML = '<span class="loading"></span><span>Running...</span>';
+        // Disable both buttons but only show loading on the active one
+        btnDownload.disabled = true;
+        btnGenerate.disabled = true;
+
+        if (currentOperationType === 'download') {
+            btnDownload.innerHTML = '<span class="loading"></span><span>Running...</span>';
+        } else if (currentOperationType === 'generate') {
+            btnGenerate.innerHTML = '<span class="loading"></span><span>Running...</span>';
+        }
     } else {
-        // Restore original button content
+        // Re-enable both buttons and restore their original content
+        btnDownload.disabled = false;
+        btnGenerate.disabled = false;
+
         btnDownload.innerHTML = `
             <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>

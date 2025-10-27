@@ -11,7 +11,7 @@ help:
 	@echo "Web Interface:"
 	@echo "  make web      - Start the web interface (opens browser automatically)"
 	@echo "  make start    - Alias for 'make web'"
-	@echo "  make stop     - Stop the web server (Ctrl+C in terminal)"
+	@echo "  make stop     - Stop the web server"
 	@echo ""
 	@echo "Development:"
 	@echo "  make install  - Install Python dependencies"
@@ -33,21 +33,24 @@ web:
 # Alias for web
 start: web
 
-# Stop instruction (Ctrl+C stops the running server)
+# Stop the web server
 stop:
-	@echo "To stop the server:"
-	@echo "  - Press Ctrl+C in the terminal where the server is running"
-	@echo ""
-	@echo "If running in background, find the process:"
-	@echo "  ps aux | grep 'src/web/app.py'"
-	@echo "  kill <process_id>"
+	@echo "Stopping LIhouses Web Interface..."
+	@PID=$$(netstat -ano | grep :8080 | grep LISTENING | awk '{print $$5}' | head -1); \
+	if [ -n "$$PID" ]; then \
+		echo "Found Flask server on port 8080 (PID: $$PID)"; \
+		taskkill //PID $$PID //F; \
+		echo "[OK] Server stopped"; \
+	else \
+		echo "No server running on port 8080"; \
+	fi
 
 # Install dependencies
 install:
 	@echo "Installing Python dependencies..."
 	pipenv install
 	@echo ""
-	@echo "✓ Dependencies installed"
+	@echo "[OK] Dependencies installed"
 	@echo ""
 	@echo "Next steps:"
 	@echo "  1. Copy .env.example to .env"
@@ -60,4 +63,4 @@ clean:
 	rm -rf .tmp/*
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-	@echo "✓ Cleanup complete"
+	@echo "[OK] Cleanup complete"
